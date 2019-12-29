@@ -1,0 +1,58 @@
+package com.atguigu.areaStat
+
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.expressions.{MutableAggregationBuffer, UserDefinedAggregateFunction}
+import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
+
+
+class GroupConcatDistinct extends UserDefinedAggregateFunction{
+  override def inputSchema: StructType = StructType(StructField("cityInfo",StringType)::Nil)
+
+  override def bufferSchema: StructType = StructType(StructField("bufferCityInfo",StringType)::Nil)
+
+  override def dataType: DataType = StringType
+
+  override def deterministic: Boolean = true
+
+  override def initialize(buffer: MutableAggregationBuffer): Unit = {
+    buffer(0)=""
+  }
+
+  override def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
+    var bufferCityInfo: String = buffer.getString(0)
+    val cityInfo: String = input.getString(0)
+
+    if(!bufferCityInfo.contains(cityInfo)){
+      if("".equals(bufferCityInfo)){
+        bufferCityInfo=cityInfo
+      }else{
+        bufferCityInfo += (","+cityInfo)
+      }
+    }
+
+    buffer(0)=bufferCityInfo
+
+  }
+
+  override def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
+    var bufferCityInfo1: String = buffer1.getString(0)
+    val bufferCityInfo2: String = buffer2.getString(0)
+
+    val cityInfos: Array[String] = bufferCityInfo2.split(",")
+
+    for (cityInfo <- cityInfos) {
+      if(!bufferCityInfo1.contains(cityInfo)){
+        if("".equals(bufferCityInfo1)){
+          bufferCityInfo1=cityInfo
+        }else{
+          bufferCityInfo1 += (","+cityInfo)
+        }
+      }
+    }
+    buffer1(0)=bufferCityInfo1
+  }
+
+  override def evaluate(buffer: Row): Any = {
+    buffer.getString(0)
+  }
+}
